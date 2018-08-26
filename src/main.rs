@@ -10,6 +10,15 @@ use std::io::prelude::*;
 
 struct LTSVParser {}
 impl LTSVParser {
+    fn read(path: &str) -> io::Result<Vec<BTreeMap<String, String>>> {
+        let file = File::open(path)?;
+        let mut parsed = Vec::new();
+        for line in BufReader::new(file).lines() {
+            parsed.push(LTSVParser::parse(line?));
+        }
+        Ok(parsed)
+    }
+
     fn parse(input_string: String) -> BTreeMap<String, String> {
         input_string.split("\t").collect::<Vec<&str>>().iter().fold(BTreeMap::<String, String>::new(), |mut acc, kv| {
             let (k, v) = LTSVParser::key_value(kv);
@@ -28,18 +37,18 @@ impl LTSVParser {
 
 fn main() -> io::Result<()> {
     let args: Vec<String> = env::args().skip(1).collect();
-    let file = File::open(&args[0])?;
-    for line in BufReader::new(file).lines() {
-        println!("{:?}", LTSVParser::parse(line?));
+
+    for kvs in LTSVParser::read(&args[0])? {
+        println!("{:?}", kvs);
     }
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use test::Bencher;
     use LTSVParser;
     use std::collections::BTreeMap;
+    use test::Bencher;
 
     #[test]
     fn test_key_value() {
@@ -57,9 +66,14 @@ mod tests {
     }
 
     #[bench]
-    fn bench_parser_btmap(b: &mut Bencher){
+    fn bench_parser(b: &mut Bencher){
         b.iter(|| {
             LTSVParser::parse("A:1\tB:2\tC:3".to_string());
         });
+    }
+
+    #[bench]
+    fn bench_read_file(b: &mut Bencher) {
+        b.iter(|| { LTSVParser::read("./samples/access.log") });
     }
 }
